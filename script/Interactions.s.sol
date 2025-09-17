@@ -5,8 +5,7 @@ import {Script, console} from "lib/forge-std/src/Script.sol";
 import {HelperConfig, CodeConstants} from "./HelperConfig.s.sol";
 import {VRFCoordinatorV2Mock} from "lib/chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol";
 import {LinkToken} from "../test/mocks/LinkToken.sol";
-import {DevOpsTools} from "lib/froundry.devops/src/DevOpsTools.sol";
-
+import {DevOpsTools} from "lib/foundry-devops/src/DevOpsTools.sol";
 
 contract CreateSubscription is Script {
     function createSubscriptionUsingConfig() public returns (uint64) {
@@ -21,7 +20,6 @@ contract CreateSubscription is Script {
             ,
             uint256 deployerKey
         ) = helperConfig.activeNetworkConfig();
-
 
         return createSubscription(vrfCoordinatorV2, deployerKey);
     }
@@ -71,12 +69,13 @@ contract AddConsumer is Script {
             uint256 deployerKey
         ) = helperConfig.activeNetworkConfig();
 
-        //address mostRecentRaffle = DevOpsTools.get_most_recent_deployment("Raffle", block.chainid);
-        //addConsumer(mostRecentRaffle, vrfCoordinator, subId, deployerKey);
+        address mostRecentRaffle =
+            DevOpsTools.get_most_recent_deployment("Raffle", block.chainid);
+        addConsumer(mostRecentRaffle, vrfCoordinator, subId, deployerKey);
     }
 }
 
-contract FundSubscription is Script {
+contract FundSubscription is Script, CodeConstants {
     uint96 public constant FUND_AMOUNT = 3 ether; // 3 LINK
 
     function fundSubscriptionUsingConfig() public {
@@ -105,7 +104,7 @@ contract FundSubscription is Script {
         console.log("On chain:", block.chainid);
 
         vm.startBroadcast(deployerKey);
-        if (block.chainid == 31337) {
+        if (block.chainid == LOCAL_CHAIN_ID) {
             VRFCoordinatorV2Mock(vrfCoordinator).fundSubscription(subId, FUND_AMOUNT);
         } else {
             LinkToken(link).transferAndCall(vrfCoordinator, FUND_AMOUNT, abi.encode(subId));
@@ -116,25 +115,4 @@ contract FundSubscription is Script {
     function run() external {
         fundSubscriptionUsingConfig();
     }
-
-
-
-    contract AddConsumer is Script {
-        
-        function addConsumerUsingConfig(address mostRecentlyDeployed) public {
-            HelperConfig helperConfig = new HelperConfig();
-            uint256 subId = helperConfig.getConfig().subscriptionId;
-            address vrfCoordinator = helperConfig.getConfig().vrfCoordinator;
-            addConsumer(mostRecentlyDeployed,vrfCoordinator,subId);
-        }
-
-        function addConsumer(address contractToAddVrfaddres, address vrfCoordinator,uint256 subId ) public {
-
-        }
-        
-        function run() external {
-            address mostRecentlyDeployed = DevOpsTools.get_most_recent_deployment("Rafle", block.chain);
-            addConsumerUsingConfig(mostRecentlyDeployed)
-        }
-     }
 }
