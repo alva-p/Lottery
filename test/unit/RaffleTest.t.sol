@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: SEE LICENSE IN LICENSE
 pragma solidity ^0.8.19;
 
-import {Test} from "forge-std/Test.sol";
+import {Test} from "lib/forge-std/src/Test.sol";
 import {DeployRaffle} from "../../script/DeployRaffle.s.sol";
 import {Raffle} from "../../src/Raffle.sol";
 import {HelperConfig} from "../../script/HelperConfig.s.sol";
 
 contract RaffleTest is Test {
-    Raffle public raffle; 
+    Raffle public raffle;
     HelperConfig public helperConfig;
 
     uint256 entranceFee;
@@ -17,9 +17,12 @@ contract RaffleTest is Test {
     uint256 subscriptionId;
     uint32 callbackGasLimit;
     //address link;
-    
+
     address public PLAYER = makeAddr("player");
     uint256 public constant STARTING_PLAYER_BALANCE = 10 ether;
+
+    event RaffleEnter(address indexed player);
+    event WinnerPicked(address indexed winner);
 
     function setUp() public {
         DeployRaffle deployer = new DeployRaffle();
@@ -32,12 +35,12 @@ contract RaffleTest is Test {
         subscriptionId = config.subscriptionId;
         callbackGasLimit = config.callbackGasLimit;
         //link = config.link;
-        vm.deal(PLAYER, STARTING_PLAYER_BALANCE);    
+        vm.deal(PLAYER, STARTING_PLAYER_BALANCE);
     }
 
     function testRaffleInitializesInOpenState() public view {
         assert(raffle.getRaffleState() == Raffle.RaffleState.OPEN);
-        }
+    }
 
     function testRaffleRevertsWhenYouDontPayEnough() public {
         // Arrange
@@ -56,5 +59,28 @@ contract RaffleTest is Test {
         address playerRecorded = raffle.getPlayer(0);
         assert(playerRecorded == PLAYER);
     }
-}
 
+    function testEnteringRaffleEmitsEvents() public {
+        vm.prank(PLAYER);
+
+        vm.expectEmit(true, false, false, false);
+        emit RaffleEnter(PLAYER);
+
+        raffle.enterRaffle{value: entranceFee}();
+    }
+
+    function testDontAllowPlayersToEnterWhileRaffleIsCalculating() public {
+        vm.prank(PLAYER);
+
+        raffle.enterRaffle{value: entranceFee}();
+
+        //WARP
+        vm.warp(block.timestamp + interval + 1);
+        vm.roll(block.number + 1);
+        raffle.performUpkeep();
+
+        vm.expectRevert(Raffle.Raffle__NotOpen.selector);
+
+        raffle.enterRaffle{value: entranceFee}();
+    }
+}
